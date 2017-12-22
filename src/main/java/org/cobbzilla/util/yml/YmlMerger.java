@@ -23,11 +23,16 @@ public class YmlMerger {
     public static final DefaultMustacheFactory DEFAULT_MUSTACHE_FACTORY = new DefaultMustacheFactory();
 
     private final Yaml yaml = new Yaml();
-    private final Map<String, Object> scope = new HashMap<String, Object>();;
+    private final Map<String, Object> scope = new HashMap<String, Object>();
+    ;
 
-    public YmlMerger() { init(System.getenv()); }
+    public YmlMerger() {
+        init(System.getenv());
+    }
 
-    public YmlMerger(Map<String, String> env) { if (env != null) init(env); }
+    public YmlMerger(Map<String, String> env) {
+        if (env != null) init(env);
+    }
 
     private void init(Map<String, String> env) {
         for (String varname : env.keySet()) {
@@ -35,8 +40,22 @@ public class YmlMerger {
         }
     }
 
+    public Map<String, Object> mergeYamlStrings(List<String> yamlStrings) {
+        Map<String, Object> mergedResult = new LinkedHashMap<String, Object>();
+        for (String yamlString : yamlStrings) {
+            // load the YML file
+            final Map<String, Object> yamlContents = (Map<String, Object>) yaml.load(yamlString);
+
+            // merge into results map
+            merge_internal(mergedResult, yamlContents);
+            LOG.info("loaded YML:" + yamlContents);
+        }
+
+        return mergedResult;
+    }
+
     @SuppressWarnings("unchecked")
-	public Map<String, Object> merge(String[] files) throws IOException {
+    public Map<String, Object> merge(String[] files) throws IOException {
         Map<String, Object> mergedResult = new LinkedHashMap<String, Object>();
         for (String file : files) {
             InputStream in = null;
@@ -47,14 +66,14 @@ public class YmlMerger {
 
                 // substitute variables
                 final StringWriter writer = new StringWriter(entireFile.length() + 10);
-                DEFAULT_MUSTACHE_FACTORY.compile(new StringReader(entireFile), "mergeyml_"+System.currentTimeMillis()).execute(writer, scope);
+                DEFAULT_MUSTACHE_FACTORY.compile(new StringReader(entireFile), "mergeyml_" + System.currentTimeMillis()).execute(writer, scope);
 
                 // load the YML file
                 final Map<String, Object> yamlContents = (Map<String, Object>) yaml.load(writer.toString());
 
                 // merge into results map
                 merge_internal(mergedResult, yamlContents);
-                LOG.info("loaded YML from "+file+": "+yamlContents);
+                LOG.info("loaded YML from " + file + ": " + yamlContents);
 
             } finally {
                 if (in != null) in.close();
@@ -64,7 +83,7 @@ public class YmlMerger {
     }
 
     @SuppressWarnings("unchecked")
-	private void merge_internal(Map<String, Object> mergedResult, Map<String, Object> yamlContents) {
+    private void merge_internal(Map<String, Object> mergedResult, Map<String, Object> yamlContents) {
 
         if (yamlContents == null) return;
 
@@ -80,20 +99,20 @@ public class YmlMerger {
             if (existingValue != null) {
                 if (yamlValue instanceof Map) {
                     if (existingValue instanceof Map) {
-                        merge_internal((Map<String, Object>) existingValue, (Map<String, Object>)  yamlValue);
+                        merge_internal((Map<String, Object>) existingValue, (Map<String, Object>) yamlValue);
                     } else if (existingValue instanceof String) {
-                        throw new IllegalArgumentException("Cannot merge complex element into a simple element: "+key);
+                        throw new IllegalArgumentException("Cannot merge complex element into a simple element: " + key);
                     } else {
                         throw unknownValueType(key, yamlValue);
                     }
                 } else if (yamlValue instanceof List) {
-                	mergeLists(mergedResult, key, yamlValue);
+                    mergeLists(mergedResult, key, yamlValue);
 
                 } else if (yamlValue instanceof String
                         || yamlValue instanceof Boolean
                         || yamlValue instanceof Double
                         || yamlValue instanceof Integer) {
-                    LOG.info("overriding value of "+key+" with value "+yamlValue);
+                    LOG.info("overriding value of " + key + " with value " + yamlValue);
                     addToMergedResult(mergedResult, key, yamlValue);
 
                 } else {
@@ -107,7 +126,7 @@ public class YmlMerger {
                         || yamlValue instanceof Boolean
                         || yamlValue instanceof Integer
                         || yamlValue instanceof Double) {
-                    LOG.info("adding new key->value: "+key+"->"+yamlValue);
+                    LOG.info("adding new key->value: " + key + "->" + yamlValue);
                     addToMergedResult(mergedResult, key, yamlValue);
                 } else {
                     throw unknownValueType(key, yamlValue);
@@ -125,15 +144,15 @@ public class YmlMerger {
     private Object addToMergedResult(Map<String, Object> mergedResult, String key, Object yamlValue) {
         return mergedResult.put(key, yamlValue);
     }
-    
+
     @SuppressWarnings("unchecked")
-	private void mergeLists(Map<String, Object> mergedResult, String key, Object yamlValue) {
-    	if (! (yamlValue instanceof List && mergedResult.get(key) instanceof List)) {
-    		throw new IllegalArgumentException("Cannot merge a list with a non-list: "+key);
-    	}
-    	
-    	List<Object> originalList = (List<Object>) mergedResult.get(key);
-    	originalList.addAll((List<Object>) yamlValue);
+    private void mergeLists(Map<String, Object> mergedResult, String key, Object yamlValue) {
+        if (!(yamlValue instanceof List && mergedResult.get(key) instanceof List)) {
+            throw new IllegalArgumentException("Cannot merge a list with a non-list: " + key);
+        }
+
+        List<Object> originalList = (List<Object>) mergedResult.get(key);
+        originalList.addAll((List<Object>) yamlValue);
     }
 
     public String mergeToString(String[] files) throws IOException {
@@ -142,6 +161,10 @@ public class YmlMerger {
 
     public String mergeToString(List<String> files) throws IOException {
         return toString(merge(files.toArray(new String[files.size()])));
+    }
+
+    public String mergeYamlStringsToString(List<String> yamlStrings) throws IOException {
+        return toString(mergeYamlStrings(yamlStrings));
     }
 
     public String toString(Map<String, Object> merged) {
